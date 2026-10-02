@@ -183,6 +183,7 @@ struct SettingsView: View {
     @AppStorage("igdbClientSecret") private var igdbSecret = ""
     @AppStorage("sgdbAPIKey") private var sgdbKey = ""
     @AppStorage("igdbProxyURL") private var igdbProxy = ""
+    @AppStorage("showMenuBarIcon") private var showMenuBarIcon = false
     @EnvironmentObject private var library: Library
 
     var body: some View {
@@ -195,6 +196,9 @@ struct SettingsView: View {
 
     private var keysForm: some View {
         Form {
+            Section("Menu Bar") {
+                Toggle("Show Shelf in the menu bar", isOn: $showMenuBarIcon)
+            }
             Section {
                 Label("Steam Store: active (no key needed)", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
