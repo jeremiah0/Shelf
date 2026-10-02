@@ -2,9 +2,34 @@ import AppKit
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var defaultsObserver: NSObjectProtocol?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.regular)
+        defaultsObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updateActivationPolicy()
+        }
+        updateActivationPolicy()
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    deinit {
+        if let defaultsObserver {
+            NotificationCenter.default.removeObserver(defaultsObserver)
+        }
+    }
+
+    private func updateActivationPolicy() {
+        let defaults = UserDefaults.standard
+        let hideDockIcon = defaults.bool(forKey: "hideDockIcon")
+        let showMenuBarIcon = defaults.bool(forKey: "showMenuBarIcon")
+        let policy: NSApplication.ActivationPolicy = hideDockIcon && showMenuBarIcon ? .accessory : .regular
+        if NSApp.activationPolicy() != policy {
+            NSApp.setActivationPolicy(policy)
+        }
     }
 }
 

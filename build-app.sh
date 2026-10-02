@@ -38,5 +38,7 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
 </plist>
 EOF
 
+printf 'APPL????' > "$APP/Contents/PkgInfo"
+
 codesign --force --sign - "$APP"
 echo "Built $APP"

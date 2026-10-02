@@ -19,8 +19,9 @@ struct ContentView: View {
     @State private var search = ""
     @State private var sort: SortOrder = .title
     @State private var showAdd = false
+    @State private var showEditGame = false
     @State private var importWizard: GamePlatform?
-    @State private var path = NavigationPath()
+    @State private var path: [UUID] = []
 
     private var title: String {
         switch selection ?? .all {
@@ -74,9 +75,14 @@ struct ContentView: View {
         Group {
             if navStyle == .top { topNavLayout } else { sidebarLayout }
         }
-        .onChange(of: selection) { path = NavigationPath() }
+        .onChange(of: selection) { path = [] }
         .sheet(isPresented: $showAdd) {
             GameFormView(game: Game(title: "", platform: .mac), isNew: true)
+        }
+        .sheet(isPresented: $showEditGame) {
+            if let id = path.last, let game = library.game(id) {
+                GameFormView(game: game, isNew: false)
+            }
         }
         .sheet(item: $importWizard) { p in
             if p == .crossover { CrossOverWizard {} } else { StoreWizard(platform: p) }
@@ -102,7 +108,9 @@ struct ContentView: View {
     private var gameDetail: some View {
         NavigationStack(path: $path) {
             GameGrid(games: filtered, title: title)
-                .navigationDestination(for: UUID.self) { DetailView(id: $0) }
+                .navigationDestination(for: UUID.self) {
+                    DetailView(id: $0)
+                }
         }
     }
 
@@ -123,7 +131,11 @@ struct ContentView: View {
 
     private var topNavLayout: some View {
         gameDetail
-            .safeAreaInset(edge: .top, spacing: 0) { topBar }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if path.isEmpty {
+                    topBar
+                }
+            }
     }
 
     private var sidebar: some View {
@@ -167,26 +179,82 @@ struct ContentView: View {
 
     private func topBarContent(compact: Bool) -> some View {
         HStack(spacing: 12) {
-            HStack(spacing: 2) {
-                navButton("Library", "square.grid.2x2", .all, compact: compact)
-                navButton("Favorites", "heart", .favorites, compact: compact)
-                navButton("Recent", "clock", .recent, compact: compact)
-                if !library.allCategories.isEmpty { categoryMenu(compact: compact) }
-                if !library.allTags.isEmpty { collectionMenu(compact: compact) }
-            }
-            .padding(4)
-            .glassSurface(in: Capsule())
-
-            Spacer(minLength: 0)
-
-            searchField
-                .padding(.horizontal, 12).padding(.vertical, 7)
-                .frame(width: compact ? 150 : 210)
+            if let gameID = path.last, let game = library.game(gameID), navStyle == .top {
+                Button { path.removeLast() } label: {
+                    Label("Back", systemImage: "chevron.left")
+                        .labelStyle(BarLabelStyle(compact: compact))
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .foregroundStyle(.primary)
+                }
+                .buttonStyle(.plain)
+                .help("Back")
+                .padding(4)
                 .glassSurface(in: Capsule())
 
-            HStack(spacing: 6) { actionControls(compact: compact) }
+                Spacer(minLength: 0)
+
+                HStack(spacing: 4) {
+                    Button { library.toggleFavorite(gameID) } label: {
+                        Label("Favorite", systemImage: game.isFavorite ? "heart.fill" : "heart")
+                            .labelStyle(BarLabelStyle(compact: compact))
+                            .foregroundStyle(.primary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(game.isFavorite ? "Remove from Favorites" : "Add to Favorites")
+
+                    Button { Task { await library.refreshMetadata(gameID) } } label: {
+                        Label("Refresh Metadata", systemImage: "arrow.clockwise")
+                            .labelStyle(BarLabelStyle(compact: compact))
+                            .foregroundStyle(.primary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Refresh Metadata")
+
+                    Button { showEditGame = true } label: {
+                        Label("Edit", systemImage: "pencil")
+                            .labelStyle(BarLabelStyle(compact: compact))
+                            .foregroundStyle(.primary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Edit Game")
+                }
                 .padding(.horizontal, 10).padding(.vertical, 5)
                 .glassSurface(in: Capsule())
+            } else if path.isEmpty {
+                HStack(spacing: 2) {
+                    navButton("Library", "square.grid.2x2", .all, compact: compact)
+                    navButton("Favorites", "heart", .favorites, compact: compact)
+                    navButton("Recent", "clock", .recent, compact: compact)
+                    if !library.allCategories.isEmpty { categoryMenu(compact: compact) }
+                    if !library.allTags.isEmpty { collectionMenu(compact: compact) }
+                }
+                .padding(4)
+                .glassSurface(in: Capsule())
+
+                Spacer(minLength: 0)
+
+                searchField
+                    .padding(.horizontal, 12).padding(.vertical, 7)
+                    .frame(width: compact ? 150 : 210)
+                    .glassSurface(in: Capsule())
+
+                HStack(spacing: 6) { actionControls(compact: compact) }
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .glassSurface(in: Capsule())
+            } else {
+                Button { path.removeLast() } label: {
+                    Label("Back", systemImage: "chevron.left")
+                        .labelStyle(BarLabelStyle(compact: compact))
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .foregroundStyle(.primary)
+                }
+                .buttonStyle(.plain)
+                .help("Back")
+                .padding(4)
+                .glassSurface(in: Capsule())
+
+                Spacer(minLength: 0)
+            }
         }
         .lineLimit(1)
     }
@@ -342,7 +410,10 @@ extension View {
         if #available(macOS 26.0, *) {
             glassEffect(.regular, in: shape)
         } else {
-            background(.ultraThinMaterial, in: shape)
+            background(.regularMaterial, in: shape)
+                .overlay {
+                    shape.stroke(.primary.opacity(0.12), lineWidth: 0.5)
+                }
         }
     }
 }
