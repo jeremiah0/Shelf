@@ -38,8 +38,8 @@ struct GameCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 CoverView(game: game)
                     .overlay(alignment: .bottomTrailing) {
-                        Button { library.launch(game.id) } label: {
-                            Image(systemName: "play.fill")
+                        Button { library.toggleRunning(game.id) } label: {
+                            Image(systemName: library.isRunning(game.id) ? "stop.fill" : "play.fill")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(width: 38, height: 38)
@@ -48,7 +48,7 @@ struct GameCard: View {
                         }
                         .buttonStyle(.plain)
                         .padding(10)
-                        .opacity(hovering ? 1 : 0)
+                        .opacity(hovering || library.isRunning(game.id) ? 1 : 0)
                     }
                     .shadow(color: .black.opacity(hovering ? 0.35 : 0.18), radius: hovering ? 18 : 8, y: hovering ? 10 : 4)
                     .scaleEffect(hovering ? 1.04 : 1)
@@ -62,7 +62,7 @@ struct GameCard: View {
         .onHover { hovering = $0 }
         .animation(.spring(duration: 0.25), value: hovering)
         .contextMenu {
-            Button("Play") { library.launch(game.id) }
+            Button(library.isRunning(game.id) ? "Stop" : "Play") { library.toggleRunning(game.id) }
             Button(game.isFavorite ? "Remove from Favorites" : "Add to Favorites") { library.toggleFavorite(game.id) }
             Button("Refresh Metadata") { Task { await library.refreshMetadata(game.id) } }
             Divider()

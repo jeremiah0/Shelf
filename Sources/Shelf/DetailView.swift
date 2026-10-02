@@ -109,12 +109,13 @@ struct DetailView: View {
             }
             .font(.callout).foregroundStyle(.secondary)
 
-            Button { library.launch(id) } label: {
-                Label("Play", systemImage: "play.fill")
+            Button { library.toggleRunning(id) } label: {
+                Label(library.isRunning(id) ? "Stop" : "Play", systemImage: library.isRunning(id) ? "stop.fill" : "play.fill")
                     .font(.system(size: 16, weight: .semibold))
                     .padding(.horizontal, 26).padding(.vertical, 8)
             }
             .buttonStyle(.borderedProminent)
+            .tint(library.isRunning(id) ? .red : .accentColor)
             .buttonBorderShape(.capsule)
             .controlSize(.large)
 

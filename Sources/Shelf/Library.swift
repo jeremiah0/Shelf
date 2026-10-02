@@ -5,6 +5,9 @@ import Foundation
 final class Library: ObservableObject {
     @Published var games: [Game] = [] { didSet { scheduleSave() } }
     @Published var status: String?
+    @Published var running: Set<UUID> = []
+    var launching: [UUID: Date] = [:]
+    var monitorTask: Task<Void, Never>?
 
     private var saveTask: Task<Void, Never>?
 
@@ -99,6 +102,10 @@ final class Library: ObservableObject {
         g.playCount += 1
         g.lastPlayed = Date()
         update(g)
+        if g.platform != .epic {
+            launching[id] = Date()
+            running.insert(id)
+        }
     }
 
     // MARK: Metadata
@@ -251,7 +258,7 @@ enum Importers {
     }
 
     /// Reads a `"key"  "value"` pair from Valve KeyValues text.
-    private static func value(for key: String, in text: String) -> String? {
+    static func value(for key: String, in text: String) -> String? {
         let pattern = "\"\(key)\"\\s+\"([^\"]*)\""
         guard let range = text.range(of: pattern, options: .regularExpression) else { return nil }
         let match = String(text[range])

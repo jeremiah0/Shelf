@@ -21,6 +21,7 @@ struct ShelfApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(library)
+                .onAppear { library.startMonitoring() }
                 .frame(minWidth: 900, minHeight: 600)
         }
         .windowStyle(.hiddenTitleBar)
