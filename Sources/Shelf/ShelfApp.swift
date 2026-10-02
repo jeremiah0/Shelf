@@ -41,12 +41,23 @@ struct ShelfApp: App {
             ShelfMenuBarMenu()
                 .environmentObject(library)
         } label: {
-            Image(nsImage: NSApp.applicationIconImage)
-                .renderingMode(.template)
+            Image(nsImage: MenuBarIcon.image)
                 .accessibilityLabel("Shelf")
         }
         .menuBarExtraStyle(.menu)
     }
+}
+
+private enum MenuBarIcon {
+    static let image: NSImage = {
+        let image = Bundle.main.url(forResource: "MenuBarIcon", withExtension: "png")
+            .flatMap { NSImage(contentsOf: $0) }
+            ?? NSImage(systemSymbolName: "books.vertical", accessibilityDescription: nil)
+            ?? NSImage()
+        image.size = NSSize(width: 18, height: 18)
+        image.isTemplate = true
+        return image
+    }()
 }
 
 private struct ShelfMenuBarMenu: View {
