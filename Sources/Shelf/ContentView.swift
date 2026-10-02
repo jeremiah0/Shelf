@@ -104,9 +104,6 @@ struct ContentView: View {
             GameGrid(games: filtered, title: title)
                 .navigationDestination(for: UUID.self) { DetailView(id: $0) }
         }
-        // Without a backing, covers scroll underneath the toolbar and make its controls unreadable.
-        .toolbarBackground(.regularMaterial, for: .windowToolbar)
-        .toolbarBackground(.visible, for: .windowToolbar)
     }
 
     private var sidebarLayout: some View {
@@ -119,6 +116,9 @@ struct ContentView: View {
         }
         .searchable(text: $search, placement: .toolbar, prompt: "Search games")
         .toolbar { toolbar }
+        // Without a backing, covers scroll underneath the toolbar and make its controls unreadable.
+        .toolbarBackground(.regularMaterial, for: .windowToolbar)
+        .toolbarBackground(.visible, for: .windowToolbar)
     }
 
     private var topNavLayout: some View {
@@ -163,8 +163,6 @@ struct ContentView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(.regularMaterial, ignoresSafeAreaEdges: .top)
-        .overlay(alignment: .bottom) { Divider() }
     }
 
     private func topBarContent(compact: Bool) -> some View {
