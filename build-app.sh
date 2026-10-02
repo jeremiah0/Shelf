@@ -10,7 +10,6 @@ APP="build/Shelf.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Shelf"
-cp Resources/MenuBarIcon.png "$APP/Contents/Resources/MenuBarIcon.png"
 
 xcrun actool Icon.icon --compile "$APP/Contents/Resources" \
     --output-format human-readable-text --notices --warnings --errors \
