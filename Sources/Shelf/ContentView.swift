@@ -13,6 +13,8 @@ enum SortOrder: String, CaseIterable, Identifiable {
 
 struct ContentView: View {
     @EnvironmentObject private var library: Library
+    @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
+    @AppStorage("navigationStyle") private var navStyle: NavigationStyle = .sidebar
     @State private var selection: SidebarItem? = .all
     @State private var search = ""
     @State private var sort: SortOrder = .title
@@ -56,15 +58,21 @@ struct ContentView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
-            sidebar
-        } detail: {
-            NavigationStack(path: $path) {
-                GameGrid(games: filtered, title: title)
-                    .navigationDestination(for: UUID.self) { DetailView(id: $0) }
+        Group {
+            if hasCompletedWelcome {
+                libraryView
+            } else {
+                WelcomeView {
+                    hasCompletedWelcome = true
+                }
             }
-            .searchable(text: $search, placement: .toolbar, prompt: "Search games")
-            .toolbar { toolbar }
+        }
+        .frame(minWidth: 900, minHeight: 600)
+    }
+
+    private var libraryView: some View {
+        Group {
+            if navStyle == .top { topNavLayout } else { sidebarLayout }
         }
         .onChange(of: selection) { path = NavigationPath() }
         .sheet(isPresented: $showAdd) {
@@ -80,13 +88,39 @@ struct ContentView: View {
                     Text(status).font(.callout)
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
-                .background(.regularMaterial, in: Capsule())
+                .glassSurface(in: Capsule())
                 .shadow(radius: 12, y: 4)
                 .padding(.bottom, 20)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(.smooth, value: library.status)
+    }
+
+    // MARK: Layouts
+
+    private var gameDetail: some View {
+        NavigationStack(path: $path) {
+            GameGrid(games: filtered, title: title)
+                .navigationDestination(for: UUID.self) { DetailView(id: $0) }
+        }
+    }
+
+    private var sidebarLayout: some View {
+        // Toolbar and search live on the split view (not the detail column) so the
+        // items keep their position when the sidebar collapses or reappears.
+        NavigationSplitView {
+            sidebar
+        } detail: {
+            gameDetail
+        }
+        .searchable(text: $search, placement: .toolbar, prompt: "Search games")
+        .toolbar { toolbar }
+    }
+
+    private var topNavLayout: some View {
+        gameDetail
+            .safeAreaInset(edge: .top, spacing: 0) { topBar }
     }
 
     private var sidebar: some View {
@@ -98,8 +132,7 @@ struct ContentView: View {
             }
             Section("Categories") {
                 ForEach(library.allCategories, id: \.self) { c in
-                    let platform = GamePlatform.allCases.first { $0.label == c }
-                    Label(c, systemImage: platform?.symbol ?? "folder.fill").tag(SidebarItem.category(c))
+                    Label(c, systemImage: categorySymbol(c)).tag(SidebarItem.category(c))
                 }
             }
             if !library.allTags.isEmpty {
@@ -111,14 +144,163 @@ struct ContentView: View {
         .navigationSplitViewColumnWidth(min: 190, ideal: 220)
     }
 
-    @ToolbarContentBuilder
-    private var toolbar: some ToolbarContent {
-        ToolbarItem {
+    private func categorySymbol(_ category: String) -> String {
+        GamePlatform.allCases.first { $0.label == category }?.symbol ?? "folder.fill"
+    }
+
+    // MARK: Overhead navigation
+
+    /// Falls back to icon-only controls when the window is too narrow for labels.
+    private var topBar: some View {
+        GlassContainer {
+            ViewThatFits(in: .horizontal) {
+                topBarContent(compact: false)
+                topBarContent(compact: true)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
+
+    private func topBarContent(compact: Bool) -> some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 2) {
+                navButton("Library", "square.grid.2x2", .all, compact: compact)
+                navButton("Favorites", "heart", .favorites, compact: compact)
+                navButton("Recent", "clock", .recent, compact: compact)
+                if !library.allCategories.isEmpty { categoryMenu(compact: compact) }
+                if !library.allTags.isEmpty { collectionMenu(compact: compact) }
+            }
+            .padding(4)
+            .glassSurface(in: Capsule())
+
+            Spacer(minLength: 0)
+
+            searchField
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .frame(width: compact ? 150 : 210)
+                .glassSurface(in: Capsule())
+
+            HStack(spacing: 6) { actionControls(compact: compact) }
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .glassSurface(in: Capsule())
+        }
+        .lineLimit(1)
+    }
+
+    private func pill(_ title: String, _ symbol: String, active: Bool, compact: Bool) -> some View {
+        Label(title, systemImage: symbol)
+            .labelStyle(BarLabelStyle(compact: compact))
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(active ? Color.accentColor.opacity(0.28) : .clear, in: Capsule())
+            .contentShape(Capsule())
+    }
+
+    private func navButton(_ title: String, _ symbol: String, _ item: SidebarItem, compact: Bool) -> some View {
+        Button { selection = item } label: { pill(title, symbol, active: selection == item, compact: compact) }
+            .buttonStyle(.plain)
+            .help(title)
+    }
+
+    private func categoryMenu(compact: Bool) -> some View {
+        Menu {
+            ForEach(library.allCategories, id: \.self) { c in
+                Button { selection = .category(c) } label: { Label(c, systemImage: categorySymbol(c)) }
+            }
+        } label: {
+            pill("Categories", "square.stack", active: isCategorySelected, compact: compact)
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(compact ? .hidden : .visible)
+        .fixedSize()
+        .help("Categories")
+    }
+
+    private func collectionMenu(compact: Bool) -> some View {
+        Menu {
+            ForEach(library.allTags, id: \.self) { t in
+                Button { selection = .tag(t) } label: { Label(t, systemImage: "folder") }
+            }
+        } label: {
+            pill("Collections", "folder", active: isTagSelected, compact: compact)
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(compact ? .hidden : .visible)
+        .fixedSize()
+        .help("Collections")
+    }
+
+    private var isCategorySelected: Bool {
+        if case .category = selection { return true }
+        return false
+    }
+
+    private var isTagSelected: Bool {
+        if case .tag = selection { return true }
+        return false
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField("Search games", text: $search).textFieldStyle(.plain)
+        }
+    }
+
+    // MARK: Shared actions
+
+    @ViewBuilder
+    private func actionControls(compact: Bool) -> some View {
+        Menu {
             Picker("Sort", selection: $sort) {
                 ForEach(SortOrder.allCases) { Text($0.rawValue).tag($0) }
             }
-            .pickerStyle(.menu)
+            .pickerStyle(.inline)
+        } label: {
+            pill(compact ? "Sort" : "Sort: \(sort.rawValue)", "arrow.up.arrow.down", active: false, compact: compact)
         }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Sort")
+
+        Menu {
+            Button("Import from Steam…") { importWizard = .steam }
+            Button("Import from Epic Games…") { importWizard = .epic }
+            Button("Import from GOG…") { importWizard = .gog }
+            Button("Import from CrossOver…") { importWizard = .crossover }
+            Button("Import Mac Games") { library.importMacGames() }
+            Divider()
+            Button("Refresh All Metadata") { Task { await library.refreshAll(missingOnly: false) } }
+        } label: {
+            pill("Import", "square.and.arrow.down", active: false, compact: compact)
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Import games")
+
+        Button { Task { await library.refreshAll(missingOnly: true) } } label: {
+            pill("Fetch Metadata", "sparkles", active: false, compact: true)
+        }
+        .buttonStyle(.plain)
+        .help("Fetch metadata for games that don't have any yet")
+
+        Button { showAdd = true } label: { pill("Add Game", "plus", active: false, compact: true) }
+            .buttonStyle(.plain)
+            .help("Add Game")
+    }
+
+    // Sidebar mode uses the system toolbar, which is Liquid Glass on macOS 26 automatically.
+    @ToolbarContentBuilder
+    private var toolbar: some ToolbarContent {
+        ToolbarItem { Picker("Sort", selection: $sort) {
+            ForEach(SortOrder.allCases) { Text($0.rawValue).tag($0) }
+        }.pickerStyle(.menu) }
         ToolbarItem {
             Menu {
                 Button("Import from Steam…") { importWizard = .steam }
@@ -140,6 +322,52 @@ struct ContentView: View {
         }
         ToolbarItem {
             Button { showAdd = true } label: { Label("Add Game", systemImage: "plus") }
+        }
+    }
+}
+
+enum NavigationStyle: String, CaseIterable, Identifiable {
+    case sidebar, top
+    var id: String { rawValue }
+    var label: String { self == .sidebar ? "Sidebar" : "Top Bar" }
+}
+
+extension View {
+    /// Liquid Glass on macOS 26+, falling back to a material on earlier versions.
+    @ViewBuilder
+    func glassSurface<S: Shape>(in shape: S) -> some View {
+        if #available(macOS 26.0, *) {
+            glassEffect(.regular, in: shape)
+        } else {
+            background(.ultraThinMaterial, in: shape)
+        }
+    }
+}
+
+private struct GlassContainer<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        if #available(macOS 26.0, *) {
+            GlassEffectContainer(spacing: 12) { content }
+        } else {
+            content
+        }
+    }
+}
+
+/// Icon plus single-line title, or the icon alone when space is tight.
+struct BarLabelStyle: LabelStyle {
+    var compact: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        if compact {
+            configuration.icon
+        } else {
+            HStack(spacing: 6) {
+                configuration.icon
+                configuration.title.lineLimit(1).fixedSize()
+            }
         }
     }
 }

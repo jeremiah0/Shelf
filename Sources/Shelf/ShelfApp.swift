@@ -31,6 +31,7 @@ struct ShelfApp: App {
             CommandGroup(replacing: .appInfo) {
                 Button("About Shelf") { AboutPanel.show() }
             }
+            CommandGroup(after: .sidebar) { NavigationStyleCommands() }
         }
 
         Settings {
@@ -50,7 +51,7 @@ struct ShelfApp: App {
 
 /// Joystick outline drawn as a vector (same geometry as Resources/MenuBarIcon.svg), so it
 /// works whether or not the app runs from a bundle and stays sharp at any scale.
-private enum MenuBarIcon {
+enum MenuBarIcon {
     static let image: NSImage = {
         let image = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { rect in
             let box = NSRect(x: -14, y: -12, width: 388, height: 388)
@@ -109,6 +110,17 @@ private enum MenuBarIcon {
         image.isTemplate = true
         return image
     }()
+}
+
+private struct NavigationStyleCommands: View {
+    @AppStorage("navigationStyle") private var navStyle: NavigationStyle = .sidebar
+
+    var body: some View {
+        Picker("Navigation Layout", selection: $navStyle) {
+            ForEach(NavigationStyle.allCases) { Text($0.label).tag($0) }
+        }
+        .pickerStyle(.inline)
+    }
 }
 
 private struct ShelfMenuBarMenu: View {

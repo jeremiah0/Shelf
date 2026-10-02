@@ -184,6 +184,7 @@ struct SettingsView: View {
     @AppStorage("sgdbAPIKey") private var sgdbKey = ""
     @AppStorage("igdbProxyURL") private var igdbProxy = ""
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = false
+    @AppStorage("navigationStyle") private var navStyle: NavigationStyle = .sidebar
     @EnvironmentObject private var library: Library
 
     var body: some View {
@@ -196,6 +197,12 @@ struct SettingsView: View {
 
     private var keysForm: some View {
         Form {
+            Section("Navigation") {
+                Picker("Layout", selection: $navStyle) {
+                    ForEach(NavigationStyle.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+            }
             Section("Menu Bar") {
                 Toggle("Show Shelf in the menu bar", isOn: $showMenuBarIcon)
             }
