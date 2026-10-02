@@ -29,12 +29,6 @@ enum AboutPanel {
         heading("Details")
         text("Developer: Jeremiah Ownby\nVersion \(version) (build \(build))\nBuilt \(buildDate)")
 
-        heading("Icon")
-        credits.append(NSAttributedString(string: "\u{201C}bookshelf\u{201D} by Ricons from Noun Project (", attributes: [.font: body, .foregroundColor: NSColor.secondaryLabelColor]))
-        link("CC BY 3.0", "https://creativecommons.org/licenses/by/3.0/", trailing: "")
-        credits.append(NSAttributedString(string: "). ", attributes: [.font: body, .foregroundColor: NSColor.secondaryLabelColor]))
-        link("thenounproject.com", "https://thenounproject.com")
-
         heading("Data Sources")
         text("Game information is provided by IGDB.com, the Steam Store, and SteamGridDB. Artwork and descriptions belong to their respective owners.")
 
