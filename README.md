@@ -4,6 +4,8 @@ Shelf is a macOS game library manager for organizing and launching games from St
 
 It helps you keep your collection in one place, discover metadata and artwork, and launch games without bouncing between multiple launchers.
 
+<img width="2022" height="1526" alt="Cheese 2026-10-05 at 21 53 45" src="https://github.com/user-attachments/assets/be1ee04e-7596-428b-aecd-48ac535a66f7" />
+
 ## Features
 
 - Import installed games from supported launchers and local apps
@@ -33,6 +35,9 @@ Shelf can enrich entries with details from:
 - IGDB
 - Steam Store
 - SteamGridDB
+
+<img width="3227" height="2221" alt="Cheese 2026-10-05 at 21 55 04" src="https://github.com/user-attachments/assets/f1cc5229-542d-4cbb-9866-c05005d27343" />
+
 
 These services are optional and can be configured during setup or later in the app.
 
