@@ -1,4 +1,10 @@
 # Shelf
+<div align="center">
+
+![Shelf Logo]<img width="1024" height="1024" alt="Icon-iOS-Default-1024@1x" src="https://github.com/user-attachments/assets/3b22c7eb-9f5c-40bd-b3bf-6664b928186c" />
+
+
+</div>
 
 Shelf is a macOS game library manager for organizing and launching games from Steam, Epic Games, GOG, CrossOver, emulators, and local Mac apps in one clean library.
 
