@@ -68,7 +68,3 @@ After building, open the generated app bundle or run the executable from the Swi
 ## Notes
 
 This project is a personal app and is not affiliated with or endorsed by Steam, Epic Games, GOG, or CrossOver. The app uses external game metadata and artwork where available, with attribution to the respective services.
-
-## Repository status
-
-This project is intended to be public-facing and is ready for upload to a GitHub repository as-is, with the app bundle and local build artifacts ignored via the project `.gitignore`.
