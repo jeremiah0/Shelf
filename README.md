@@ -1,7 +1,7 @@
 # Shelf
 <div align="center">
 
-![Shelf Logo]<img width="1024" height="1024" alt="Icon-iOS-Default-1024@1x" src="https://github.com/user-attachments/assets/3b22c7eb-9f5c-40bd-b3bf-6664b928186c" />
+<img width="256" height="256" alt="Icon-iOS-Default-1024@1x" src="https://github.com/user-attachments/assets/3b22c7eb-9f5c-40bd-b3bf-6664b928186c" />
 
 
 </div>
