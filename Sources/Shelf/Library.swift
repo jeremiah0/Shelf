@@ -64,7 +64,8 @@ final class Library: ObservableObject {
 
     func add(_ game: Game) {
         games.append(game)
-        Task { await refreshMetadata(game.id) }
+        // Fill gaps only, so art or text the user picked in the form survives.
+        Task { await refreshMetadata(game.id, overwrite: false) }
     }
 
     // MARK: Launching
@@ -72,32 +73,44 @@ final class Library: ObservableObject {
     func launch(_ id: UUID) {
         guard var g = game(id) else { return }
         let ws = NSWorkspace.shared
+        // Only count a play (and show the game as running) when something was actually started.
+        var started = false
         switch g.platform {
         case .steam:
-            if let appID = g.steamAppID, let url = URL(string: "steam://rungameid/\(appID)") { ws.open(url) }
+            if let appID = g.steamAppID, let url = URL(string: "steam://rungameid/\(appID)") { started = ws.open(url) }
         case .epic:
-            if let name = g.epicAppName,
-               let url = URL(string: "com.epicgames.launcher://apps/\(name)?action=launch&silent=true") { ws.open(url) }
+            if let name = g.epicAppName?.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+               let url = URL(string: "com.epicgames.launcher://apps/\(name)?action=launch&silent=true") { started = ws.open(url) }
         case .crossover:
             if let exe = g.launchPath, let bottle = g.crossoverBottle {
-                CrossOver.launch(exe: exe, bottle: bottle, args: g.steamAppID.map { ["-applaunch", "\($0)"] } ?? [])
+                started = CrossOver.launch(exe: exe, bottle: bottle, args: g.steamAppID.map { ["-applaunch", "\($0)"] } ?? [])
             }
         case .emulator:
             if let app = g.launchPath, let rom = g.romPath {
                 ws.open([URL(fileURLWithPath: rom)], withApplicationAt: URL(fileURLWithPath: app),
                         configuration: NSWorkspace.OpenConfiguration())
+                started = true
             }
         default:
             guard let path = g.launchPath else { return }
             let url = URL(fileURLWithPath: path)
             if url.pathExtension == "app" {
                 ws.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+                started = true
             } else {
                 let p = Process()
                 p.executableURL = url
                 p.currentDirectoryURL = url.deletingLastPathComponent()
-                try? p.run()
+                started = (try? p.run()) != nil
             }
+        }
+        guard started else {
+            status = "Couldn't launch \(g.title)"
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(3))
+                if self?.status == "Couldn't launch \(g.title)" { self?.status = nil }
+            }
+            return
         }
         g.playCount += 1
         g.lastPlayed = Date()
@@ -110,16 +123,16 @@ final class Library: ObservableObject {
 
     // MARK: Metadata
 
-    func refreshMetadata(_ id: UUID) async {
+    func refreshMetadata(_ id: UUID, overwrite: Bool = true) async {
         guard let g = game(id) else { return }
         status = "Fetching \(g.title)…"
-        applyMetadata(await MetadataService.fetch(for: g), to: id)
+        applyMetadata(await MetadataService.fetch(for: g), to: id, overwrite: overwrite)
         status = nil
     }
 
-    private func applyMetadata(_ meta: GameMetadata, to id: UUID) {
+    private func applyMetadata(_ meta: GameMetadata, to id: UUID, overwrite: Bool) {
         guard var g = game(id) else { return }
-        g.apply(meta, overwrite: true)
+        g.apply(meta, overwrite: overwrite)
         g.metadataVersion = Game.currentMetadataVersion
         update(g)
     }
@@ -132,7 +145,7 @@ final class Library: ObservableObject {
             var running = 0
             for g in targets {
                 if running == 4, let r = await group.next() {
-                    applyMetadata(r.1, to: r.0)
+                    applyMetadata(r.1, to: r.0, overwrite: !missingOnly)
                     done += 1
                     status = "Updated \(done) of \(targets.count)"
                     running -= 1
@@ -141,7 +154,7 @@ final class Library: ObservableObject {
                 running += 1
             }
             for await r in group {
-                applyMetadata(r.1, to: r.0)
+                applyMetadata(r.1, to: r.0, overwrite: !missingOnly)
                 done += 1
                 status = "Updated \(done) of \(targets.count)"
             }
@@ -259,9 +272,11 @@ enum Importers {
 
     /// Reads a `"key"  "value"` pair from Valve KeyValues text.
     static func value(for key: String, in text: String) -> String? {
-        let pattern = "\"\(key)\"\\s+\"([^\"]*)\""
-        guard let range = text.range(of: pattern, options: .regularExpression) else { return nil }
-        let match = String(text[range])
-        return match.split(separator: "\"").last.map(String.init)
+        // Read the capture group: splitting the match on quotes drops an empty value and returns the whitespace before it.
+        let pattern = "\"\(NSRegularExpression.escapedPattern(for: key))\"\\s+\"([^\"]*)\""
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let m = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let range = Range(m.range(at: 1), in: text) else { return nil }
+        return String(text[range])
     }
 }

@@ -17,11 +17,23 @@ struct GameFormView: View {
         let all = Set(library.allCategories + GamePlatform.allCases.map(\.label) + [game.category].compactMap { $0 })
         return all.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
+    // Keeps empty and trailing-space items while typing (otherwise a typed "," or space is eaten
+    // as soon as the text is re-joined); `cleaned` tidies the lists on save.
     private func list(_ keyPath: WritableKeyPath<Game, [String]>) -> Binding<String> {
         Binding(
             get: { game[keyPath: keyPath].joined(separator: ", ") },
-            set: { game[keyPath: keyPath] = $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
+            set: { game[keyPath: keyPath] = $0.split(separator: ",", omittingEmptySubsequences: false).map { String($0.drop { $0 == " " }) } }
         )
+    }
+
+    private var cleaned: Game {
+        func tidy(_ l: [String]) -> [String] { l.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
+        var g = game
+        g.genres = tidy(g.genres)
+        g.developers = tidy(g.developers)
+        g.publishers = tidy(g.publishers)
+        g.tags = tidy(g.tags)
+        return g
     }
 
     private func pick(allowFolders: Bool = false, completion: (String) -> Void) {
@@ -96,7 +108,7 @@ struct GameFormView: View {
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button(isNew ? "Add" : "Save") {
-                    if isNew { library.add(game) } else { library.update(game) }
+                    if isNew { library.add(cleaned) } else { library.update(cleaned) }
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)

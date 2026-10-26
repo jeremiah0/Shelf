@@ -76,6 +76,8 @@ struct ContentView: View {
             if navStyle == .top { topNavLayout } else { sidebarLayout }
         }
         .onChange(of: selection) { path = [] }
+        // Leave a game's page once it is removed instead of showing an empty view.
+        .onChange(of: library.games.map(\.id)) { path.removeAll { library.game($0) == nil } }
         .sheet(isPresented: $showAdd) {
             GameFormView(game: Game(title: "", platform: .mac), isNew: true)
         }

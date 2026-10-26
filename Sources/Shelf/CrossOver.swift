@@ -76,14 +76,15 @@ enum CrossOver {
         return found.sorted { $0.path < $1.path }
     }
 
-    static func launch(exe: String, bottle: String, args: [String] = []) {
-        guard let wine = wineURL else { return }
+    @discardableResult
+    static func launch(exe: String, bottle: String, args: [String] = []) -> Bool {
+        guard let wine = wineURL else { return false }
         let url = URL(fileURLWithPath: exe)
         let p = Process()
         p.executableURL = wine
         p.arguments = ["--bottle", bottle, "start", "/unix", exe] + args
         p.currentDirectoryURL = url.deletingLastPathComponent()
-        try? p.run()
+        return (try? p.run()) != nil
     }
 }
 
@@ -237,8 +238,9 @@ struct CrossOverWizard: View {
         guard let bottle else { return }
         for c in candidates where c.selected {
             let title = c.title.trimmingCharacters(in: .whitespaces)
-            library.add(Game(title: title.isEmpty ? c.url.deletingPathExtension().lastPathComponent : title,
-                             platform: .crossover, steamAppID: c.steamAppID, launchPath: c.url.path, crossoverBottle: bottle))
+            let game = Game(title: title.isEmpty ? c.url.deletingPathExtension().lastPathComponent : title,
+                            platform: .crossover, steamAppID: c.steamAppID, launchPath: c.url.path, crossoverBottle: bottle)
+            if !library.isDuplicate(game) { library.add(game) }
         }
         dismiss()
         onFinish()

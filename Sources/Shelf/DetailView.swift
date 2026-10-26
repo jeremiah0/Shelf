@@ -18,6 +18,8 @@ struct TrailerView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .onAppear { if player == nil { player = AVPlayer(url: url) } }
                 .onDisappear { player?.pause() }
+                // A metadata refresh can swap the trailer while this view stays on screen.
+                .onChange(of: url) { _, new in player?.pause(); player = AVPlayer(url: new) }
         }
     }
 }

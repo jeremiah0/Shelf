@@ -128,7 +128,6 @@ extension Library {
 
     func refreshRunning() {
         let games = self.games
-        let launching = self.launching
         Task {
             let result = await Task.detached { () -> Set<UUID> in
                 let entries = ProcessScanner.snapshot()
@@ -142,9 +141,11 @@ extension Library {
                 return found
             }.value
             // Keep a freshly launched game "running" while it starts, until it appears or the grace period lapses.
+            // Read `launching` after the scan so a Stop pressed meanwhile isn't undone by a stale copy.
             var next = result
-            for (id, date) in launching where Date().timeIntervalSince(date) < 30 && !result.contains(id) { next.insert(id) }
-            for id in result { self.launching[id] = nil }
+            for (id, date) in self.launching {
+                if result.contains(id) || Date().timeIntervalSince(date) >= 30 { self.launching[id] = nil } else { next.insert(id) }
+            }
             if next != self.running { self.running = next }
         }
     }
