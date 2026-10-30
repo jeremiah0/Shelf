@@ -156,6 +156,8 @@ private struct ShelfMenuBarMenu: View {
         library.games
             .filter { $0.lastPlayed != nil }
             .sorted { ($0.lastPlayed ?? .distantPast) > ($1.lastPlayed ?? .distantPast) }
+            .prefix(10)
+            .map { $0 }
     }
 
     var body: some View {

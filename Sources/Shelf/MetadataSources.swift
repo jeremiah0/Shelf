@@ -22,6 +22,7 @@ struct IGDBConfig {
 actor IGDBClient {
     static let shared = IGDBClient()
     private var token: String?
+    private var tokenClientID: String?
     private var expiry = Date.distantPast
 
     private struct Token: Decodable { let access_token: String; let expires_in: Double }
@@ -46,7 +47,8 @@ actor IGDBClient {
     }
 
     private func accessToken(id: String, secret: String) async throws -> String {
-        if let token, expiry > Date() { return token }
+        // A token belongs to one client; new credentials in Settings need a new token.
+        if let token, tokenClientID == id, expiry > Date() { return token }
         var comps = URLComponents(string: "https://id.twitch.tv/oauth2/token")!
         comps.queryItems = [
             .init(name: "client_id", value: id),
@@ -57,6 +59,7 @@ actor IGDBClient {
         req.httpMethod = "POST"
         let t = try await fetchJSON(req, as: Token.self)
         token = t.access_token
+        tokenClientID = id
         expiry = Date().addingTimeInterval(t.expires_in - 60)
         return t.access_token
     }
@@ -218,7 +221,10 @@ enum SteamGridDBClient {
             gridPath = "grids/steam/\(steamAppID)?dimensions=600x900"
             heroPath = "heroes/steam/\(steamAppID)"
         } else {
-            let term = title.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? title
+            // Titles like "Fate/Stay Night" must not add a path segment.
+            var allowed = CharacterSet.urlPathAllowed
+            allowed.remove("/")
+            let term = title.addingPercentEncoding(withAllowedCharacters: allowed) ?? title
             let found = try await fetchJSON(request("search/autocomplete/\(term)", key: key), as: Response<Game>.self)
             guard let id = found.data.first?.id else { return ([], []) }
             gridPath = "grids/game/\(id)?dimensions=600x900"
