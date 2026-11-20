@@ -45,7 +45,7 @@ struct ContentView: View {
         let q = search.trimmingCharacters(in: .whitespaces).lowercased()
         if !q.isEmpty {
             list = list.filter {
-                ([$0.title] + $0.genres + $0.tags + $0.developers).contains { $0.lowercased().contains(q) }
+                ([$0.title, $0.effectiveCategory, $0.platform.label] + $0.genres + $0.tags + $0.developers).contains { $0.lowercased().contains(q) }
             }
         }
         if selection == .recent { return list.sorted { ($0.lastPlayed ?? .distantPast) > ($1.lastPlayed ?? .distantPast) } }

@@ -2,33 +2,40 @@ import AppKit
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var defaultsObserver: NSObjectProtocol?
-
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        defaultsObserver = NotificationCenter.default.addObserver(
-            forName: UserDefaults.didChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.updateActivationPolicy()
-        }
-        updateActivationPolicy()
-        NSApp.activate(ignoringOtherApps: true)
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        let center = NotificationCenter.default
+        center.addObserver(self, selector: #selector(windowBecameMain(_:)),
+                           name: NSWindow.didBecomeMainNotification, object: nil)
+        center.addObserver(self, selector: #selector(windowWillClose(_:)),
+                           name: NSWindow.willCloseNotification, object: nil)
     }
 
-    deinit {
-        if let defaultsObserver {
-            NotificationCenter.default.removeObserver(defaultsObserver)
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
+    private func isAppWindow(_ window: NSWindow) -> Bool {
+        window.styleMask.contains(.titled) && window.canBecomeMain && window.parent == nil
+    }
+
+    @objc private func windowBecameMain(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, isAppWindow(window) else { return }
+        if NSApp.activationPolicy() != .regular {
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
         }
     }
 
-    private func updateActivationPolicy() {
-        let defaults = UserDefaults.standard
-        let hideDockIcon = defaults.bool(forKey: "hideDockIcon")
-        let showMenuBarIcon = defaults.bool(forKey: "showMenuBarIcon")
-        let policy: NSApplication.ActivationPolicy = hideDockIcon && showMenuBarIcon ? .accessory : .regular
-        if NSApp.activationPolicy() != policy {
-            NSApp.setActivationPolicy(policy)
+    @objc private func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, isAppWindow(window) else { return }
+        // AppKit posts willClose before updating the window list.
+        DispatchQueue.main.async {
+            let hasWindow = NSApp.windows.contains {
+                self.isAppWindow($0) && ($0.isVisible || $0.isMiniaturized)
+            }
+            if !hasWindow && NSApp.activationPolicy() != .accessory {
+                NSApp.setActivationPolicy(.accessory)
+            }
         }
     }
 }
@@ -37,7 +44,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct ShelfApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var library = Library()
-    @AppStorage("showMenuBarIcon") private var showMenuBarIcon = false
 
     init() {
         URLCache.shared = URLCache(memoryCapacity: 64 << 20, diskCapacity: 512 << 20)
@@ -63,7 +69,7 @@ struct ShelfApp: App {
             SettingsView().environmentObject(library)
         }
 
-        MenuBarExtra(isInserted: $showMenuBarIcon) {
+        MenuBarExtra {
             ShelfMenuBarMenu()
                 .environmentObject(library)
         } label: {
@@ -74,62 +80,25 @@ struct ShelfApp: App {
     }
 }
 
-/// Joystick outline drawn as a vector (same geometry as Resources/MenuBarIcon.svg), so it
-/// works whether or not the app runs from a bundle and stays sharp at any scale.
+/// Compact silhouette of the game cases used in the app icon.
 enum MenuBarIcon {
     static let image: NSImage = {
-        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { rect in
-            let box = NSRect(x: -14, y: -12, width: 388, height: 388)
-            let transform = NSAffineTransform()
-            transform.scaleX(by: rect.width / box.width, yBy: rect.height / box.height)
-            transform.translateX(by: -box.minX, yBy: -box.minY)
-            transform.concat()
-            NSColor.black.setStroke()
-
-            let stroke = { (path: NSBezierPath) in
-                path.lineWidth = 22
-                path.lineJoinStyle = .round
-                path.lineCapStyle = .round
-                path.stroke()
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { _ in
+            NSColor.black.setFill()
+            func bar(_ x: CGFloat, _ y: CGFloat, _ width: CGFloat, _ height: CGFloat) {
+                NSBezierPath(roundedRect: NSRect(x: x, y: y, width: width, height: height),
+                             xRadius: 0.8, yRadius: 0.8).fill()
             }
-
-            stroke(NSBezierPath(ovalIn: NSRect(x: 217.5 - 51.5, y: 62.5 - 51.5, width: 103, height: 103)))
-
+            bar(1, 6, 3, 7)
+            bar(5.5, 2, 4, 11)
             NSGraphicsContext.saveGraphicsState()
-            let clip = NSBezierPath(rect: NSRect(x: 0, y: -20, width: 361, height: 253))
-            clip.append(NSBezierPath(ovalIn: NSRect(x: 217.5 - 72, y: 62.5 - 72, width: 144, height: 144)))
-            clip.windingRule = .evenOdd
-            clip.addClip()
-            let lever = NSBezierPath()
-            lever.move(to: NSPoint(x: 151.275, y: 278.695))
-            lever.curve(to: NSPoint(x: 137.411, y: 254.681), controlPoint1: NSPoint(x: 140.815, y: 275.893), controlPoint2: NSPoint(x: 134.608, y: 265.141))
-            lever.line(to: NSPoint(x: 182.503, y: 86.393))
-            lever.curve(to: NSPoint(x: 206.517, y: 72.529), controlPoint1: NSPoint(x: 185.306, y: 75.933), controlPoint2: NSPoint(x: 196.058, y: 69.726))
-            lever.line(to: NSPoint(x: 221.795, y: 76.622))
-            lever.curve(to: NSPoint(x: 235.660, y: 100.636), controlPoint1: NSPoint(x: 232.255, y: 79.425), controlPoint2: NSPoint(x: 238.463, y: 90.177))
-            lever.line(to: NSPoint(x: 190.567, y: 268.925))
-            lever.curve(to: NSPoint(x: 166.553, y: 282.789), controlPoint1: NSPoint(x: 187.764, y: 279.385), controlPoint2: NSPoint(x: 177.013, y: 285.592))
-            lever.close()
-            stroke(lever)
+            let transform = NSAffineTransform()
+            transform.translateX(by: 13, yBy: 13)
+            transform.rotate(byDegrees: -17)
+            transform.concat()
+            bar(0, -9, 3, 9)
             NSGraphicsContext.restoreGraphicsState()
-
-            let base = NSBezierPath()
-            base.move(to: NSPoint(x: 359.469, y: 336.594))
-            base.line(to: NSPoint(x: 359.469, y: 279.953))
-            base.curve(to: NSPoint(x: 339.861, y: 260.342), controlPoint1: NSPoint(x: 359.468, y: 269.120), controlPoint2: NSPoint(x: 350.689, y: 260.342))
-            base.line(to: NSPoint(x: 286.484, y: 260.344))
-            base.line(to: NSPoint(x: 285.932, y: 254.854))
-            base.curve(to: NSPoint(x: 259.253, y: 233.109), controlPoint1: NSPoint(x: 283.392, y: 242.444), controlPoint2: NSPoint(x: 272.413, y: 233.109))
-            base.line(to: NSPoint(x: 100.219, y: 233.109))
-            base.curve(to: NSPoint(x: 72.983, y: 260.342), controlPoint1: NSPoint(x: 85.175, y: 233.109), controlPoint2: NSPoint(x: 72.983, y: 245.302))
-            base.line(to: NSPoint(x: 19.609, y: 260.344))
-            base.curve(to: NSPoint(x: 0, y: 279.949), controlPoint1: NSPoint(x: 8.779, y: 260.342), controlPoint2: NSPoint(x: 0, y: 269.120))
-            base.line(to: NSPoint(x: 0, y: 336.594))
-            base.curve(to: NSPoint(x: 19.607, y: 356.200), controlPoint1: NSPoint(x: 0, y: 347.422), controlPoint2: NSPoint(x: 8.779, y: 356.200))
-            base.line(to: NSPoint(x: 339.859, y: 356.203))
-            base.curve(to: NSPoint(x: 359.469, y: 336.594), controlPoint1: NSPoint(x: 350.689, y: 356.200), controlPoint2: NSPoint(x: 359.468, y: 347.422))
-            base.close()
-            stroke(base)
+            bar(0.5, 14.5, 17, 2)
             return true
         }
         image.isTemplate = true

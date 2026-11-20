@@ -195,8 +195,6 @@ struct SettingsView: View {
     @AppStorage("igdbClientSecret") private var igdbSecret = ""
     @AppStorage("sgdbAPIKey") private var sgdbKey = ""
     @AppStorage("igdbProxyURL") private var igdbProxy = ""
-    @AppStorage("showMenuBarIcon") private var showMenuBarIcon = false
-    @AppStorage("hideDockIcon") private var hideDockIcon = false
     @AppStorage("navigationStyle") private var navStyle: NavigationStyle = .sidebar
     @EnvironmentObject private var library: Library
 
@@ -215,12 +213,6 @@ struct SettingsView: View {
                     ForEach(NavigationStyle.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
-            }
-            Section("Menu Bar") {
-                Toggle("Show Shelf in the menu bar", isOn: $showMenuBarIcon)
-                if showMenuBarIcon {
-                    Toggle("Hide Dock icon", isOn: $hideDockIcon)
-                }
             }
             Section {
                 Label("Steam Store: active (no key needed)", systemImage: "checkmark.circle.fill")

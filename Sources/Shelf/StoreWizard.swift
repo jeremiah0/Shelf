@@ -136,7 +136,8 @@ struct StoreWizard: View {
         guard panel.runModal() == .OK else { return }
         for url in panel.urls where !candidates.contains(where: { $0.game.launchPath == url.path }) {
             let game = Game(title: url.deletingPathExtension().lastPathComponent, platform: .gog, launchPath: url.path)
-            candidates.insert(Candidate(game: game, duplicate: library.isDuplicate(game), selected: true), at: 0)
+            let duplicate = library.isDuplicate(game)
+            candidates.insert(Candidate(game: game, duplicate: duplicate, selected: !duplicate), at: 0)
         }
     }
 
@@ -144,7 +145,7 @@ struct StoreWizard: View {
         for c in candidates where c.selected && !c.duplicate {
             var g = c.game
             g.title = g.title.trimmingCharacters(in: .whitespaces)
-            if !g.title.isEmpty { library.add(g) }
+            if !g.title.isEmpty && !library.isDuplicate(g) { library.add(g) }
         }
         dismiss()
         onFinish()

@@ -71,7 +71,7 @@ final class Library: ObservableObject {
     // MARK: Launching
 
     func launch(_ id: UUID) {
-        guard var g = game(id) else { return }
+        guard let g = game(id) else { return }
         let ws = NSWorkspace.shared
         // Only count a play (and show the game as running) when something was actually started.
         var started = false
@@ -88,15 +88,19 @@ final class Library: ObservableObject {
         case .emulator:
             if let app = g.launchPath, let rom = g.romPath {
                 ws.open([URL(fileURLWithPath: rom)], withApplicationAt: URL(fileURLWithPath: app),
-                        configuration: NSWorkspace.OpenConfiguration())
-                started = true
+                        configuration: NSWorkspace.OpenConfiguration()) { app, error in
+                    Task { @MainActor in self.finishLaunch(id, started: app != nil && error == nil) }
+                }
+                return
             }
         default:
-            guard let path = g.launchPath else { return }
+            guard let path = g.launchPath else { break }
             let url = URL(fileURLWithPath: path)
-            if url.pathExtension == "app" {
-                ws.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
-                started = true
+            if url.pathExtension.lowercased() == "app" {
+                ws.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { app, error in
+                    Task { @MainActor in self.finishLaunch(id, started: app != nil && error == nil) }
+                }
+                return
             } else {
                 let p = Process()
                 p.executableURL = url
@@ -104,6 +108,11 @@ final class Library: ObservableObject {
                 started = (try? p.run()) != nil
             }
         }
+        finishLaunch(id, started: started)
+    }
+
+    private func finishLaunch(_ id: UUID, started: Bool) {
+        guard var g = game(id) else { return }
         guard started else {
             status = "Couldn't launch \(g.title)"
             Task { [weak self] in
@@ -175,9 +184,12 @@ final class Library: ObservableObject {
     }
 
     private func merge(_ incoming: [Game], source: String) {
-        let fresh = incoming.filter { !isDuplicate($0) }
-        games.append(contentsOf: fresh)
-        status = "Imported \(fresh.count) from \(source)"
+        var count = 0
+        for game in incoming where !isDuplicate(game) {
+            games.append(game)
+            count += 1
+        }
+        status = "Imported \(count) from \(source)"
         Task { await refreshAll(missingOnly: true) }
     }
 
